@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width">
+    <meta charset="utf-8">
+    <title>Planning Poker (Scrum Poker)</title>
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            color: #000;
+            background: #fff;
+            font-family: Roboto, Arial, sans-serif;
+        }
+
+        .no-scroll, .no-scroll > body {
+            overflow: hidden;
+        }
+
+        .cards {
+            list-style: none;
+            margin: 4px;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .card {
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+
+            margin: 4px;
+
+            font-size: 50px;
+
+            width: 90px;
+            height: 130px;
+
+            flex: auto;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            cursor: pointer;
+        }
+
+        .card-selected {
+            border-radius: 2px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
+
+            opacity: 0;
+
+            width: 0;
+            height: 0;
+            font-size: 140px;
+            z-index: 10;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+            .card-selected_active {
+                width: 75%;
+                height: 75%;
+                opacity: 1;
+
+                transition: opacity 300ms ease 200ms;
+            }
+
+        .coffee-break {
+            background: url(coffee.svg) no-repeat 0 0;
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            background-size: 1em 1em;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            background: #fff;
+            opacity: 0;
+            z-index: 5;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+            .overlay_active {
+                opacity: 1;
+                width: 100%;
+                height: 100%;
+
+                transition: opacity 200ms;
+            }
+
+        .settings {
+            padding: 16px 8px 0;
+            margin: 0 0 16px;
+            border-bottom: 1px solid #ccc;
+        }
+            .setting {
+                cursor: pointer;
+                margin-bottom: 16px;
+                font-size: 20px;
+            }
+                label.setting {display: inline-block;}
+                .setting > input {
+                    width: 18px;
+                    height: 18px;
+                }
+    </style>
+</head>
+<body>
+
+<div class="settings">
+    <label class="setting"><input type="checkbox" class="js-keep-awake"/> Keep screen on while card is shown</label><br/>
+    <button class="setting js-full-screen">Toggle fullscreen</button>
+</div>
+
+<ul class="cards">
+    <li class="card">0</li>
+    <li class="card">½</li>
+    <li class="card">1</li>
+    <li class="card">2</li>
+    <li class="card">3</li>
+    <li class="card">5</li>
+    <li class="card">8</li>
+    <li class="card">13</li>
+    <li class="card">20</li>
+    <li class="card">40</li>
+    <li class="card">100</li>
+    <li class="card">∞</li>
+    <li class="card">?</li>
+    <li class="card"><span class="coffee-break"></span>️</li>
+</ul>
+
+<div class="overlay">
+    <div class="card-selected"></div>
+</div>
+
+<script src="NoSleep.min.js"></script>
+<script>
+    var noSleep = new NoSleep();
+
+    var registerUniversalClick = function(target, listener) {
+        var tapping;
+
+        target.addEventListener('touchstart', function() {
+            tapping = true;
+        }, false);
+
+        target.addEventListener('touchmove', function() {
+            tapping = false;
+        }, false);
+
+        target.addEventListener('touchcancel', function() {
+            tapping = false;
+        }, false);
+
+        target.addEventListener('touchend', function(e) {
+            e.preventDefault();
+            if (tapping) {
+                listener(e);
+            }
+        }, false);
+
+        target.addEventListener('click', function(e) {
+            listener(e);
+        }, false);
+    };
+
+    function toggleFullScreen() {
+        if (!document.fullscreenElement &&    // alternative standard method
+            !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement ) {  // current working methods
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
+            } else if (document.documentElement.msRequestFullscreen) {
+                document.documentElement.msRequestFullscreen();
+            } else if (document.documentElement.mozRequestFullScreen) {
+                document.documentElement.mozRequestFullScreen();
+            } else if (document.documentElement.webkitRequestFullscreen) {
+                document.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            } else if (document.mozCancelFullScreen) {
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            }
+        }
+    }
+
+    var keepAwake = false;
+    document.querySelector('.js-keep-awake').addEventListener('change', function(e) {
+        keepAwake = e.currentTarget.checked;
+    });
+
+    registerUniversalClick(document.querySelector('.js-full-screen'), function() {
+        toggleFullScreen();
+    });
+
+    var overlay = document.querySelector('.overlay');
+    var selected = document.querySelector('.card-selected');
+    var cards = document.querySelectorAll('.card');
+    [].slice.call(cards).forEach(function(card) {
+        registerUniversalClick(card, function(e) {
+            if (keepAwake) {
+                noSleep.enable();
+            }
+            document.documentElement.classList.add('no-scroll');
+            overlay.classList.add('overlay_active');
+            selected.innerHTML = e.currentTarget.innerHTML;
+            selected.classList.add('card-selected_active');
+        });
+    });
+
+    registerUniversalClick(overlay, function() {
+        noSleep.disable();
+        selected.innerHTML = '';
+        document.documentElement.classList.remove('no-scroll');
+        overlay.classList.remove('overlay_active');
+        selected.classList.remove('card-selected_active');
+    });
+</script>
+
+</body>
+</html>
